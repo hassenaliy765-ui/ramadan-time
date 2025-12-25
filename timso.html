@@ -1,87 +1,65 @@
-<!DOCTYPE html>
+       <!DOCTYPE html>
 <html lang="am">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>የሶላት አስታዋሽ</title>
-    <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
-        .card { background: white; padding: 15px; margin: 10px auto; border-radius: 10px; max-width: 400px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input { padding: 8px; margin: 5px; width: 80%; border: 1px solid #ccc; border-radius: 5px; }
-        button { background: #004d00; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-        .status { color: green; font-weight: bold; margin-top: 10px; }
+        body { font-family: sans-serif; text-align: center; background-color: #f4f7f6; padding: 20px; }
+        .card { background: white; padding: 15px; margin: 10px auto; border-radius: 12px; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #004d00; }
+        h2 { color: #004d00; }
+        input[type="time"] { padding: 8px; width: 80%; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { background-color: #004d00; color: white; padding: 15px; border: none; border-radius: 25px; font-size: 16px; cursor: pointer; width: 100%; max-width: 350px; }
+        #status { margin-top: 15px; font-weight: bold; color: #d4af37; }
     </style>
 </head>
 <body>
-
-    <h2>የሶላት እና ስሁር አስታዋሽ</h2>
+    <h2>የሶላት አስታዋሽ</h2>
     <div id="prayer-list"></div>
-    <div id="status" class="status"></div>
-    <br>
+    <div id="status"></div>
     <button onclick="startReminder()">አስታዋሹን አስጀምር</button>
 
     <script>
-        const prayers = ["Subhi", "Zuhur", "Asr", "Magrib", "Isha", "Suhur"];
+        const prayers = ["ሱብሂ", "ዙሁር", "ዐስር", "መግሪብ", "ዒሻእ", "ስሁር"];
         let prayerData = {};
 
-        // ገጹ ሲከፈት የተቀመጠ ሰዓት ካለ አውጣ
         window.onload = () => {
-            const prayerList = document.getElementById('prayer-list');
-            prayers.forEach(prayer => {
-                const savedTime = localStorage.getItem(`time-${prayer}`);
-                prayerData[prayer] = { time: savedTime || "", audio: null, played: false };
-
+            const list = document.getElementById('prayer-list');
+            prayers.forEach(p => {
+                const savedTime = localStorage.getItem(p) || "";
+                prayerData[p] = { time: savedTime, audio: null };
                 const div = document.createElement('div');
                 div.className = 'card';
-                div.innerHTML = `
-                    <h4>${prayer}</h4>
-                    <input type="time" id="time-${prayer}" value="${savedTime || ""}" onchange="saveTime('${prayer}')"><br>
-                    <input type="file" accept="audio/*" onchange="loadAudio(event, '${prayer}')">
-                `;
-                prayerList.appendChild(div);
+                div.innerHTML = `<h3>${p}</h3><input type="time" value="${savedTime}" onchange="saveTime('${p}', this.value)"><br><input type="file" accept="audio/*" onchange="loadAudio(event, '${p}')">`;
+                list.appendChild(div);
             });
         };
 
-        function saveTime(prayer) {
-            const timeVal = document.getElementById(`time-${prayer}`).value;
-            prayerData[prayer].time = timeVal;
-            localStorage.setItem(`time-${prayer}`, timeVal); // ስልክ ላይ ሴቭ ያደርጋል
-        }
-
-        function loadAudio(event, prayer) {
-            const file = event.target.files[0];
+        function saveTime(p, val) { prayerData[p].time = val; localStorage.setItem(p, val); }
+        function loadAudio(e, p) {
+            const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    prayerData[prayer].audio = new Audio(e.target.result);
-                };
+                reader.onload = (event) => { prayerData[p].audio = new Audio(event.target.result); };
                 reader.readAsDataURL(file);
             }
         }
 
         function startReminder() {
-            document.getElementById('status').innerText = "አስታዋሹ ተጀምሯል! አፑን በስተጀርባ ክፍት አድርገው።";
+            document.getElementById('status').innerText = "አስታዋሹ ተጀምሯል!";
             setInterval(() => {
                 const now = new Date();
-                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                
-                prayers.forEach(prayer => {
-                    if (prayerData[prayer].time === currentTime && !prayerData[prayer].played) {
-                        if (prayerData[prayer].audio) {
-                            prayerData[prayer].audio.play();
-                            prayerData[prayer].played = true;
-                            alert(`${prayer} ሰዓት ደርሷል!`);
-                        }
+                const nowTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+                for (let p in prayerData) {
+                    if (prayerData[p].time === nowTime && prayerData[p].audio) {
+                        prayerData[p].audio.play();
+                        alert(p + " ሰዓት ደርሷል!");
+                        prayerData[p].time = ""; 
                     }
-                });
+                }
             }, 1000);
-        }
-
-        // Service Worker Register
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
         }
     </script>
 </body>
 </html>
+       
