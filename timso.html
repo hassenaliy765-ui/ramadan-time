@@ -3,21 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>አስታዋሽ</title>
+    <title>አስታዋሽ - ረመዷን ሙባረክ</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #001a00; color: #d4af37; padding: 20px; }
-        h1 { color: #d4af37; text-shadow: 2px 2px #000; }
-        .card { background: #002b00; padding: 15px; margin: 10px auto; border-radius: 15px; max-width: 350px; border: 1px solid #d4af37; }
-        input[type="time"] { background: #000; color: #d4af37; border: 1px solid #d4af37; padding: 10px; border-radius: 5px; width: 80%; }
-        .start-btn { background: #d4af37; color: #000; padding: 15px; border-radius: 30px; width: 100%; max-width: 350px; font-weight: bold; margin-top: 20px; }
-        .fajr { color: #fff; } .zuhur { color: #4caf50; } .asr { color: #ff9800; } .magrib { color: #f44336; } .isha { color: #2196f3; } .suhur { color: #e91e63; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            text-align: center; 
+            background-color: #001a00; /* ጥቁር አረንጓዴ */
+            color: #d4af37; /* ወርቃማ */
+            padding: 20px;
+        }
+        h1 { font-size: 3rem; margin-bottom: 5px; text-shadow: 2px 2px #000; }
+        .card { 
+            background: #002b00; 
+            padding: 15px; 
+            margin: 15px auto; 
+            border-radius: 15px; 
+            max-width: 380px; 
+            border: 1px solid #d4af37;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .fajr { color: #fff; } .zuhur { color: #4caf50; } .asr { color: #ff9800; } 
+        .magrib { color: #f44336; } .isha { color: #2196f3; } .suhur { color: #e91e63; }
+        
+        input[type="time"] { 
+            background: #000; color: #d4af37; border: 1px solid #d4af37; 
+            padding: 10px; border-radius: 8px; width: 85%; font-size: 18px; margin: 10px 0;
+        }
+        input[type="file"] { color: #fff; font-size: 12px; margin-top: 5px; }
+        .start-btn { 
+            background: linear-gradient(45deg, #d4af37, #aa891a); 
+            color: #000; padding: 18px; border: none; border-radius: 50px; 
+            font-size: 1.3rem; font-weight: bold; width: 100%; max-width: 380px; 
+            cursor: pointer; margin-top: 20px;
+        }
+        #status { color: #00ff00; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
+
     <h1>አስታዋሽ</h1>
+    <div style="color: #fff; margin-bottom: 20px;">የረመዷን የሶላትና ስሁር አስታዋሽ</div>
+
     <div id="prayer-list"></div>
+    <div id="status"></div>
     <button class="start-btn" onclick="startReminder()">አስታዋሹን አስጀምር</button>
-    <p id="status"></p>
 
     <script>
         const prayers = [
@@ -27,30 +56,32 @@
         ];
         let prayerData = {};
 
-        // ድምፅን በቋሚነት ስልክ ውስጥ ለመቅበር የሚረዳ Database (IndexedDB)
-        const dbRequest = indexedDB.open("PrayerDB", 1);
+        // 1. ድምፅን በቋሚነት ስልክ ውስጥ ለመቅበር Database መክፈት
+        const dbRequest = indexedDB.open("PrayerAudioDB", 1);
         dbRequest.onupgradeneeded = e => e.target.result.createObjectStore("sounds");
 
         window.onload = () => {
             const list = document.getElementById('prayer-list');
             prayers.forEach(p => {
                 const savedTime = localStorage.getItem(p.id) || "";
-                prayerData[p.id] = { time: savedTime, audio: null };
+                prayerData[p.id] = { time: savedTime, audio: null, playedToday: false };
 
                 const div = document.createElement('div');
                 div.className = 'card';
                 div.innerHTML = `<h3 class="${p.class}">${p.id}</h3>
                     <input type="time" value="${savedTime}" onchange="saveTime('${p.id}', this.value)">
-                    <input type="file" accept="audio/*" onchange="handleFile(event, '${p.id}')">`;
+                    <input type="file" accept="audio/*" onchange="storeAudio(event, '${p.id}')">`;
                 list.appendChild(div);
 
-                // የተቀመጠ ድምፅ ካለ አውጣ
+                // ስልክ ውስጥ የተቀመጠ ድምፅ ካለ አውጣ
                 dbRequest.onsuccess = () => {
                     const tx = dbRequest.result.transaction("sounds", "readonly");
                     const store = tx.objectStore("sounds");
                     const getReq = store.get(p.id);
                     getReq.onsuccess = () => {
-                        if (getReq.result) prayerData[p.id].audio = new Audio(getReq.result);
+                        if (getReq.result) {
+                            prayerData[p.id].audio = new Audio(getReq.result);
+                        }
                     };
                 };
             });
@@ -58,30 +89,40 @@
 
         function saveTime(id, val) {
             prayerData[id].time = val;
+            prayerData[id].playedToday = false; // ሰዓት ሲቀየር ድጋሚ እንዲጮህ ይፈቅዳል
             localStorage.setItem(id, val);
         }
 
-        function handleFile(e, id) {
+        function storeAudio(e, id) {
             const file = e.target.files[0];
             const reader = new FileReader();
             reader.onload = ev => {
                 const blob = ev.target.result;
                 prayerData[id].audio = new Audio(blob);
+                // ድምፁን በቋሚነት ስልኩ Database ውስጥ ማስቀመጥ
                 const tx = dbRequest.result.transaction("sounds", "readwrite");
-                tx.objectStore("sounds").put(blob, id); // ድምፁን ስልክ ውስጥ ቀበረው!
+                tx.objectStore("sounds").put(blob, id);
             };
             reader.readAsDataURL(file);
         }
 
         function startReminder() {
-            document.getElementById('status').innerText = "ተጀምሯል! 🌙 (አፑን Background ላይ አትዝጋው)";
+            document.getElementById('status').innerText = "አስታዋሹ በትክክል ተጀምሯል! 🌙";
+            
+            // በየደቂቃው አንድ ጊዜ ብቻ ቼክ ያደርጋል
             setInterval(() => {
                 const now = new Date();
                 const nowTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+                
                 for (let id in prayerData) {
-                    if (prayerData[id].time === nowTime && prayerData[id].audio) {
-                        prayerData[id].audio.play();
-                        alert(id + " ሰዓት ደርሷል!");
+                    if (prayerData[id].time === nowTime && !prayerData[id].playedToday) {
+                        if (prayerData[id].audio) {
+                            prayerData[id].audio.play();
+                            prayerData[id].playedToday = true; // ለአንድ ደቂቃ ብቻ እንዲጮህ
+                            alert(id + " ሰዓት ደርሷል!");
+                            // ለሚቀጥለው ደቂቃ ዝግጁ እንዲሆን ከ60 ሰከንድ በኋላ መልሰው
+                            setTimeout(() => { prayerData[id].playedToday = false; }, 61000);
+                        }
                     }
                 }
             }, 1000);
@@ -89,4 +130,5 @@
     </script>
 </body>
 </html>
+
 
