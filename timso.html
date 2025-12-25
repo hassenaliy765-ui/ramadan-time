@@ -3,96 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>አስታዋሽ - የሶላትና ስሁር</title>
+    <title>አስታዋሽ</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            text-align: center; 
-            background-color: #001a00; /* ጥቁር አረንጓዴ */
-            color: #d4af37; /* ወርቃማ ቀለም */
-            padding: 20px;
-            margin: 0;
-        }
-        h1 { 
-            font-size: 3rem; 
-            color: #d4af37; 
-            text-shadow: 2px 2px 4px #000;
-            margin-bottom: 10px;
-        }
-        .subtitle { font-size: 1.2rem; color: #fff; margin-bottom: 30px; }
-        
-        .card { 
-            background: #002b00; 
-            padding: 20px; 
-            margin: 15px auto; 
-            border-radius: 20px; 
-            max-width: 380px; 
-            border: 2px solid #d4af37; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-        }
-        
-        h3 { font-size: 1.8rem; margin: 10px 0; color: #fff; }
-        
-        /* ለእያንዳንዱ ሶላት የተለየ ቀለም */
-        .fajr { color: #ffeb3b; }   /* ቢጫ */
-        .zuhur { color: #4caf50; }  /* አረንጓዴ */
-        .asr { color: #ff9800; }    /* ብርቱካናማ */
-        .magrib { color: #f44336; } /* ቀይ */
-        .isha { color: #2196f3; }   /* ሰማያዊ */
-        .suhur { color: #e91e63; }  /* ሮዝ */
-
-        input[type="time"] { 
-            padding: 12px; 
-            width: 85%; 
-            background: #000; 
-            color: #d4af37; 
-            border: 1px solid #d4af37; 
-            border-radius: 10px; 
-            font-size: 18px; 
-            margin: 10px 0;
-        }
-        
-        input[type="file"] { color: #fff; margin-top: 10px; font-size: 14px; }
-        
-        .start-btn { 
-            background: linear-gradient(45deg, #d4af37, #aa891a); 
-            color: #000; 
-            padding: 18px; 
-            border: none; 
-            border-radius: 50px; 
-            font-size: 1.5rem; 
-            font-weight: bold; 
-            cursor: pointer; 
-            width: 100%; 
-            max-width: 380px; 
-            margin-top: 30px;
-            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
-        }
-        
-        #status { margin-top: 20px; font-size: 1.1rem; color: #fff; }
+        body { font-family: sans-serif; text-align: center; background-color: #001a00; color: #d4af37; padding: 20px; }
+        h1 { color: #d4af37; text-shadow: 2px 2px #000; }
+        .card { background: #002b00; padding: 15px; margin: 10px auto; border-radius: 15px; max-width: 350px; border: 1px solid #d4af37; }
+        input[type="time"] { background: #000; color: #d4af37; border: 1px solid #d4af37; padding: 10px; border-radius: 5px; width: 80%; }
+        .start-btn { background: #d4af37; color: #000; padding: 15px; border-radius: 30px; width: 100%; max-width: 350px; font-weight: bold; margin-top: 20px; }
+        .fajr { color: #fff; } .zuhur { color: #4caf50; } .asr { color: #ff9800; } .magrib { color: #f44336; } .isha { color: #2196f3; } .suhur { color: #e91e63; }
     </style>
 </head>
 <body>
-
     <h1>አስታዋሽ</h1>
-    <div class="subtitle">ረመዷን ሙባረክ</div>
-
     <div id="prayer-list"></div>
-
-    <div id="status"></div>
     <button class="start-btn" onclick="startReminder()">አስታዋሹን አስጀምር</button>
+    <p id="status"></p>
 
     <script>
         const prayers = [
-            {id: "ፈጅር", class: "fajr"},
-            {id: "ዝሁር", class: "zuhur"},
-            {id: "ዓስር", class: "asr"},
-            {id: "መግሪብ", class: "magrib"},
-            {id: "ኢሻእ", class: "isha"},
-            {id: "ስሁር", class: "suhur"}
+            {id: "ፈጅር", class: "fajr"}, {id: "ዝሁር", class: "zuhur"}, 
+            {id: "ዓስር", class: "asr"}, {id: "መግሪብ", class: "magrib"}, 
+            {id: "ኢሻእ", class: "isha"}, {id: "ስሁር", class: "suhur"}
         ];
-        
         let prayerData = {};
+
+        // ድምፅን በቋሚነት ስልክ ውስጥ ለመቅበር የሚረዳ Database (IndexedDB)
+        const dbRequest = indexedDB.open("PrayerDB", 1);
+        dbRequest.onupgradeneeded = e => e.target.result.createObjectStore("sounds");
 
         window.onload = () => {
             const list = document.getElementById('prayer-list');
@@ -102,13 +39,20 @@
 
                 const div = document.createElement('div');
                 div.className = 'card';
-                div.innerHTML = `
-                    <h3 class="${p.class}">${p.id}</h3>
+                div.innerHTML = `<h3 class="${p.class}">${p.id}</h3>
                     <input type="time" value="${savedTime}" onchange="saveTime('${p.id}', this.value)">
-                    <br>
-                    <input type="file" accept="audio/*" onchange="loadAudio(event, '${p.id}')">
-                `;
+                    <input type="file" accept="audio/*" onchange="handleFile(event, '${p.id}')">`;
                 list.appendChild(div);
+
+                // የተቀመጠ ድምፅ ካለ አውጣ
+                dbRequest.onsuccess = () => {
+                    const tx = dbRequest.result.transaction("sounds", "readonly");
+                    const store = tx.objectStore("sounds");
+                    const getReq = store.get(p.id);
+                    getReq.onsuccess = () => {
+                        if (getReq.result) prayerData[p.id].audio = new Audio(getReq.result);
+                    };
+                };
             });
         };
 
@@ -117,30 +61,27 @@
             localStorage.setItem(id, val);
         }
 
-        function loadAudio(e, id) {
+        function handleFile(e, id) {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    prayerData[id].audio = new Audio(ev.target.result);
-                };
-                reader.readAsDataURL(file);
-            }
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const blob = ev.target.result;
+                prayerData[id].audio = new Audio(blob);
+                const tx = dbRequest.result.transaction("sounds", "readwrite");
+                tx.objectStore("sounds").put(blob, id); // ድምፁን ስልክ ውስጥ ቀበረው!
+            };
+            reader.readAsDataURL(file);
         }
 
         function startReminder() {
-            document.getElementById('status').innerText = "አስታዋሹ በትክክል ተጀምሯል! 🌙";
+            document.getElementById('status').innerText = "ተጀምሯል! 🌙 (አፑን Background ላይ አትዝጋው)";
             setInterval(() => {
                 const now = new Date();
                 const nowTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-                
                 for (let id in prayerData) {
-                    if (prayerData[id].time === nowTime) {
-                        if (prayerData[id].audio) {
-                            prayerData[id].audio.play();
-                            alert(id + " ሰዓት ደርሷል!");
-                            prayerData[id].time = ""; 
-                        }
+                    if (prayerData[id].time === nowTime && prayerData[id].audio) {
+                        prayerData[id].audio.play();
+                        alert(id + " ሰዓት ደርሷል!");
                     }
                 }
             }, 1000);
@@ -148,3 +89,4 @@
     </script>
 </body>
 </html>
+
